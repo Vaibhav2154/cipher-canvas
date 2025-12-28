@@ -31,7 +31,7 @@ jobs:
 
       # 3. Install and build
       - name: Install and build React app
-        working-directory: frontend
+        working-directory: .
         run: |
           npm ci
           npm run build
