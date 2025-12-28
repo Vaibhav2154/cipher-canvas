@@ -9,12 +9,20 @@ interface ScytaleCipherProps {
   className?: string;
 }
 
-function generateScytaleSteps(text: string, columns: number): { steps: CipherStep[]; ciphertext: string } {
+function generateScytaleSteps(text: string, columns: number, mode: 'encrypt' | 'decrypt'): { steps: CipherStep[]; ciphertext: string } {
   const cleanText = text.replace(/[^A-Z]/g, '');
   if (!cleanText || columns < 2) {
     return { steps: [], ciphertext: '' };
   }
 
+  if (mode === 'encrypt') {
+    return generateEncryptSteps(cleanText, columns);
+  } else {
+    return generateDecryptSteps(cleanText, columns);
+  }
+}
+
+function generateEncryptSteps(cleanText: string, columns: number): { steps: CipherStep[]; ciphertext: string } {
   const rows = Math.ceil(cleanText.length / columns);
   const paddedText = cleanText.padEnd(rows * columns, 'X');
   
@@ -73,6 +81,67 @@ function generateScytaleSteps(text: string, columns: number): { steps: CipherSte
   return { steps, ciphertext };
 }
 
+function generateDecryptSteps(cleanText: string, columns: number): { steps: CipherStep[]; ciphertext: string } {
+  const rows = Math.ceil(cleanText.length / columns);
+  const steps: CipherStep[] = [];
+  
+  // Step 1: Initial ciphertext
+  steps.push({
+    description: `Starting with ciphertext: "${cleanText}"`,
+    visualData: { type: 'text', text: cleanText, highlight: [] }
+  });
+
+  // Step 2: Fill grid by columns
+  const grid: string[][] = Array(rows).fill(null).map(() => Array(columns).fill(''));
+  let textIndex = 0;
+  
+  for (let c = 0; c < columns; c++) {
+    for (let r = 0; r < rows; r++) {
+      if (textIndex < cleanText.length) {
+        grid[r][c] = cleanText[textIndex++];
+      }
+    }
+    
+    steps.push({
+      description: `Filling column ${c + 1} from ciphertext`,
+      visualData: { 
+        type: 'grid', 
+        grid: grid.map(row => [...row]),
+        columns,
+        highlightColumn: c
+      }
+    });
+  }
+
+  // Step 3: Read rows to get plaintext
+  let plaintext = '';
+  for (let r = 0; r < rows; r++) {
+    let rowText = grid[r].join('');
+    plaintext += rowText;
+    
+    steps.push({
+      description: `Reading row ${r + 1}: "${rowText}"`,
+      visualData: { 
+        type: 'grid', 
+        grid: grid.map(row => [...row]),
+        columns,
+        highlightRow: r,
+        partial: plaintext
+      }
+    });
+  }
+
+  // Remove padding X's
+  const finalPlaintext = plaintext.replace(/X+$/, '');
+  
+  steps.push({
+    description: `Plaintext complete: "${finalPlaintext}"`,
+    visualData: { type: 'result', ciphertext: finalPlaintext }
+  });
+
+  return { steps, ciphertext: finalPlaintext };
+}
+
 export function ScytaleCipher({ className }: ScytaleCipherProps) {
   const [plaintext, setPlaintext] = useState('HELLOSPARTANS');
   const [keyValue, setKeyValue] = useState('4');
@@ -84,8 +153,8 @@ export function ScytaleCipher({ className }: ScytaleCipherProps) {
 
   const animationSteps = useMemo(() => {
     if (!isAnimating) return [{ description: 'Enter text and click "Run Animation"', visualData: { type: 'empty' } }];
-    return generateScytaleSteps(plaintext, columns).steps;
-  }, [plaintext, columns, isAnimating]);
+    return generateScytaleSteps(plaintext, columns, mode).steps;
+  }, [plaintext, columns, isAnimating, mode]);
 
   const {
     currentStep,
@@ -99,10 +168,23 @@ export function ScytaleCipher({ className }: ScytaleCipherProps) {
 
   const handleExecute = () => {
     setIsAnimating(true);
-    const result = generateScytaleSteps(plaintext, columns);
+    const result = generateScytaleSteps(plaintext, columns, mode);
     setDisplayCiphertext(result.ciphertext);
     reset();
     setTimeout(play, 100);
+  };
+
+  const handleModeChange = (newMode: 'encrypt' | 'decrypt') => {
+    setMode(newMode);
+    setIsAnimating(false);
+    setDisplayCiphertext('');
+    
+    // Set appropriate default text for the mode
+    if (newMode === 'decrypt' && plaintext === 'HELLOSPARTANS') {
+      setPlaintext('HLEOLASNRTPSA'); // This is the encrypted version of HELLOSPARTANS with 4 columns
+    } else if (newMode === 'encrypt' && plaintext === 'HLEOLASNRTPSA') {
+      setPlaintext('HELLOSPARTANS');
+    }
   };
 
   const currentData = animationSteps[currentStep]?.visualData as {
@@ -125,7 +207,7 @@ export function ScytaleCipher({ className }: ScytaleCipherProps) {
         mode={mode}
         onPlaintextChange={setPlaintext}
         onKeyChange={setKeyValue}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         onExecute={handleExecute}
         keyLabel="Columns"
         keyPlaceholder="e.g., 4"
@@ -176,7 +258,7 @@ export function ScytaleCipher({ className }: ScytaleCipherProps) {
               {currentData.partial && (
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">Ciphertext so far:</p>
-                  <p className="font-mono tracking-wider">{currentData.partial}</p>
+                  <p className="font-mono tracking-wider text-foreground">{currentData.partial}</p>
                 </div>
               )}
             </div>
@@ -185,7 +267,7 @@ export function ScytaleCipher({ className }: ScytaleCipherProps) {
           {currentData?.type === 'result' && (
             <div className="text-center fade-in">
               <p className="text-xs text-muted-foreground mb-2">Complete Ciphertext</p>
-              <p className="font-mono text-2xl tracking-wider">{currentData.ciphertext}</p>
+              <p className="font-mono text-2xl tracking-wider text-foreground">{currentData.ciphertext}</p>
             </div>
           )}
         </div>

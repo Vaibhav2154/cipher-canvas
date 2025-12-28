@@ -37,19 +37,27 @@ export function CipherInput({
           variant={mode === 'encrypt' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onModeChange('encrypt')}
-          className="flex items-center gap-2"
+          className={`flex items-center gap-2 font-medium ${
+            mode === 'encrypt' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'border-2 border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground'
+          }`}
         >
           <Lock className="w-3 h-3" />
-          Encrypt
+          <span>Encrypt</span>
         </Button>
         <Button
           variant={mode === 'decrypt' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onModeChange('decrypt')}
-          className="flex items-center gap-2"
+          className={`flex items-center gap-2 font-medium ${
+            mode === 'decrypt' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'border-2 border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground'
+          }`}
         >
           <Unlock className="w-3 h-3" />
-          Decrypt
+          <span>Decrypt</span>
         </Button>
       </div>
 
@@ -92,7 +100,7 @@ export function CipherInput({
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
             {mode === 'encrypt' ? 'Ciphertext' : 'Output'}
           </p>
-          <p className="font-mono text-lg tracking-wider">
+          <p className="font-mono text-lg tracking-wider text-foreground">
             {ciphertext || '—'}
           </p>
         </div>

@@ -32,7 +32,7 @@ export default function Index() {
       
       <main className="flex-1 flex">
         {/* Visual Demo Area */}
-        <section className="flex-1 p-6 overflow-auto">
+        <section className="flex-1 p-6 overflow-auto bg-background">
           <header className="mb-6">
             <h1 className="text-2xl font-semibold">{documentation.name}</h1>
             <p className="text-sm text-muted-foreground mt-1">

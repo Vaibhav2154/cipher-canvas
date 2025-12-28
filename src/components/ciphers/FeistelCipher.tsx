@@ -282,17 +282,17 @@ export function FeistelCipher({ className }: FeistelCipherProps) {
               <div className="flex items-center justify-center gap-4">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">L Final</p>
-                  <p className="font-mono text-lg">{currentData.L}</p>
+                  <p className="font-mono text-lg text-foreground">{currentData.L}</p>
                 </div>
                 <span className="text-muted-foreground">+</span>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">R Final</p>
-                  <p className="font-mono text-lg">{currentData.R}</p>
+                  <p className="font-mono text-lg text-foreground">{currentData.R}</p>
                 </div>
                 <span className="text-muted-foreground">=</span>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">Ciphertext</p>
-                  <p className="font-mono text-xl">{currentData.ciphertext}</p>
+                  <p className="font-mono text-xl text-foreground">{currentData.ciphertext}</p>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">

@@ -8,7 +8,7 @@ interface DocumentationPanelProps {
 
 export function DocumentationPanel({ documentation }: DocumentationPanelProps) {
   return (
-    <div className="border border-border bg-card h-full flex flex-col">
+    <div className="border border-border bg-background h-full flex flex-col">
       <div className="p-4 border-b border-border">
         <h2 className="text-xl font-semibold">{documentation.name}</h2>
         <p className="text-sm text-muted-foreground mt-1">Documentation & Reference</p>
@@ -32,7 +32,7 @@ export function DocumentationPanel({ documentation }: DocumentationPanelProps) {
 
         <ScrollArea className="flex-1">
           <div className="p-4">
-            <TabsContent value="concept" className="mt-0">
+            <TabsContent value="concept" className="mt-0 text-white">
               <div className="space-y-4 fade-in">
                 <section>
                   <h3 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">
@@ -54,7 +54,7 @@ export function DocumentationPanel({ documentation }: DocumentationPanelProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="history" className="mt-0">
+            <TabsContent value="history" className="mt-0 text-white">
               <div className="fade-in">
                 <h3 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">
                   Historical Background
@@ -65,7 +65,7 @@ export function DocumentationPanel({ documentation }: DocumentationPanelProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="steps" className="mt-0">
+            <TabsContent value="steps" className="mt-0 text-white">
               <div className="space-y-4 fade-in">
                 <section>
                   <h3 className="text-sm uppercase tracking-wider text-muted-foreground mb-3">
@@ -94,7 +94,7 @@ export function DocumentationPanel({ documentation }: DocumentationPanelProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="analysis" className="mt-0">
+            <TabsContent value="analysis" className="mt-0 text-white">
               <div className="space-y-4 fade-in">
                 <section>
                   <h3 className="text-sm uppercase tracking-wider text-muted-foreground mb-3">

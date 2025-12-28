@@ -222,7 +222,7 @@ export function RouteCipher({ className }: RouteCipherProps) {
               {currentData.partial && (
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">Ciphertext so far:</p>
-                  <p className="font-mono tracking-wider">{currentData.partial}</p>
+                  <p className="font-mono tracking-wider text-foreground">{currentData.partial}</p>
                 </div>
               )}
             </div>
@@ -231,7 +231,7 @@ export function RouteCipher({ className }: RouteCipherProps) {
           {currentData?.type === 'result' && (
             <div className="text-center fade-in">
               <p className="text-xs text-muted-foreground mb-2">Complete Ciphertext (Spiral Route)</p>
-              <p className="font-mono text-2xl tracking-wider">{currentData.ciphertext}</p>
+              <p className="font-mono text-2xl tracking-wider text-foreground">{currentData.ciphertext}</p>
             </div>
           )}
         </div>

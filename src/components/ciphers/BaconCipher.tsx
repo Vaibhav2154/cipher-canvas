@@ -181,7 +181,7 @@ export function BaconCipher({ className }: BaconCipherProps) {
               {currentData.partial && (
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">Encoded so far:</p>
-                  <p className="font-mono text-sm tracking-wider break-all max-w-md">
+                  <p className="font-mono text-sm tracking-wider break-all max-w-md text-foreground">
                     {currentData.partial}
                   </p>
                 </div>
@@ -220,7 +220,7 @@ export function BaconCipher({ className }: BaconCipherProps) {
           {currentData?.type === 'result' && (
             <div className="text-center fade-in space-y-4">
               <p className="text-xs text-muted-foreground">Complete Ciphertext</p>
-              <p className="font-mono text-lg tracking-wider break-all max-w-lg">
+              <p className="font-mono text-lg tracking-wider break-all max-w-lg text-foreground">
                 {currentData.ciphertext}
               </p>
               <p className="text-xs text-muted-foreground">
