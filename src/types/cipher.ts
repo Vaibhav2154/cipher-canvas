@@ -24,6 +24,22 @@ export interface CipherDocumentation {
   strengths: string[];
   weaknesses: string[];
   modernRelevance: string;
+  mathematicalFoundation: string;
+  practicalExample: {
+    plaintext: string;
+    key: string;
+    ciphertext: string;
+    stepByStep: string[];
+  };
+  securityAnalysis: {
+    keySpace: string;
+    cryptanalysisResistance: string;
+    recommendedKeySize: string;
+  };
+  variations: string[];
+  realWorldApplications: string[];
+  learningObjectives: string[];
+  commonMistakes: string[];
 }
 
 export type CipherType = 
