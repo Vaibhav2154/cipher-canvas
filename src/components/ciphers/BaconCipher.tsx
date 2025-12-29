@@ -9,43 +9,43 @@ interface BaconCipherProps {
   className?: string;
 }
 
+
 const BACON_TABLE: Record<string, string> = {
-  'A': 'AAAAA', 'B': 'AAAAB', 'C': 'AAABA', 'D': 'AAABB', 'E': 'AABAA',
-  'F': 'AABAB', 'G': 'AABBA', 'H': 'AABBB', 'I': 'ABAAA', 'J': 'ABAAA',
-  'K': 'ABAAB', 'L': 'ABABA', 'M': 'ABABB', 'N': 'ABBAA', 'O': 'ABBAB',
-  'P': 'ABBBA', 'Q': 'ABBBB', 'R': 'BAAAA', 'S': 'BAAAB', 'T': 'BAABA',
-  'U': 'BAABB', 'V': 'BAABB', 'W': 'BABAA', 'X': 'BABAB', 'Y': 'BABBA',
-  'Z': 'BABBB'
+  A: 'AAAAA', B: 'AAAAB', C: 'AAABA', D: 'AAABB', E: 'AABAA',
+  F: 'AABAB', G: 'AABBA', H: 'AABBB', I: 'ABAAA', J: 'ABAAA',
+  K: 'ABAAB', L: 'ABABA', M: 'ABABB', N: 'ABBAA', O: 'ABBAB',
+  P: 'ABBBA', Q: 'ABBBB', R: 'BAAAA', S: 'BAAAB', T: 'BAABA',
+  U: 'BAABB', V: 'BAABB', W: 'BABAA', X: 'BABAB', Y: 'BABBA',
+  Z: 'BABBB'
 };
 
-function generateBaconSteps(text: string): { steps: CipherStep[]; ciphertext: string } {
-  const cleanText = text.replace(/[^A-Z]/g, '');
-  
-  if (!cleanText) {
-    return { steps: [], ciphertext: '' };
-  }
+const REVERSE_TABLE: Record<string, string> = Object.fromEntries(
+  Object.entries(BACON_TABLE).map(([k, v]) => [v, k])
+);
+
+
+function encryptBacon(text: string) {
+  const clean = text.replace(/[^A-Z]/gi, '').toUpperCase();
+  if (!clean) return { steps: [], result: '' };
 
   const steps: CipherStep[] = [];
-  
-  // Step 1: Show input
-  steps.push({
-    description: `Starting with plaintext: "${cleanText}"`,
-    visualData: { type: 'text', text: cleanText }
-  });
-
-  // Step 2: Convert each letter
   let ciphertext = '';
   const encodings: { letter: string; code: string }[] = [];
-  
-  for (let i = 0; i < cleanText.length; i++) {
-    const letter = cleanText[i];
-    const code = BACON_TABLE[letter] || 'AAAAA';
+
+  steps.push({
+    description: `Plaintext: "${clean}"`,
+    visualData: { type: 'text', text: clean }
+  });
+
+  for (let i = 0; i < clean.length; i++) {
+    const letter = clean[i];
+    const code = BACON_TABLE[letter];
     encodings.push({ letter, code });
     ciphertext += code;
-    
+
     steps.push({
       description: `Encoding "${letter}" → ${code}`,
-      visualData: { 
+      visualData: {
         type: 'encoding',
         encodings: [...encodings],
         currentIndex: i,
@@ -54,35 +54,80 @@ function generateBaconSteps(text: string): { steps: CipherStep[]; ciphertext: st
     });
   }
 
-  // Step 3: Show binary representation
   steps.push({
-    description: 'Complete binary encoding (A=0, B=1)',
-    visualData: { 
-      type: 'binary',
-      encodings,
-      ciphertext
-    }
+    description: 'Binary representation (A=0, B=1)',
+    visualData: { type: 'binary', encodings, ciphertext }
   });
 
-  // Final step
   steps.push({
-    description: `Ciphertext: "${ciphertext}"`,
+    description: 'Encryption complete',
     visualData: { type: 'result', ciphertext, encodings }
   });
 
-  return { steps, ciphertext };
+  return { steps, result: ciphertext };
 }
 
+
+function decryptBacon(text: string) {
+  const clean = text.replace(/[^AB]/gi, '').toUpperCase();
+  if (!clean || clean.length % 5 !== 0) {
+    return { steps: [], result: '' };
+  }
+
+  const steps: CipherStep[] = [];
+  let plaintext = '';
+  const groups: { code: string; letter: string }[] = [];
+
+  steps.push({
+    description: `Ciphertext grouped into 5-bit blocks`,
+    visualData: { type: 'ciphertext', text: clean }
+  });
+
+  for (let i = 0; i < clean.length; i += 5) {
+    const block = clean.slice(i, i + 5);
+    const letter = REVERSE_TABLE[block] || '?';
+    groups.push({ code: block, letter });
+    plaintext += letter;
+
+    steps.push({
+      description: `Decoding ${block} → "${letter}"`,
+      visualData: {
+        type: 'decoding',
+        groups: [...groups],
+        currentIndex: groups.length - 1,
+        partial: plaintext
+      }
+    });
+  }
+
+  steps.push({
+    description: 'Decryption complete',
+    visualData: { type: 'result', ciphertext: plaintext }
+  });
+
+  return { steps, result: plaintext };
+}
+
+
 export function BaconCipher({ className }: BaconCipherProps) {
-  const [plaintext, setPlaintext] = useState('HELLO');
+  const [text, setText] = useState('HELLO');
   const [mode, setMode] = useState<'encrypt' | 'decrypt'>('encrypt');
-  const [displayCiphertext, setDisplayCiphertext] = useState('');
+  const [output, setOutput] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
 
   const { steps } = useMemo(() => {
-    if (!isAnimating) return { steps: [{ description: 'Enter text and click "Run Animation"', visualData: { type: 'empty' } }] };
-    return generateBaconSteps(plaintext);
-  }, [plaintext, isAnimating]);
+    if (!isAnimating) {
+      return {
+        steps: [
+          { description: 'Enter text and run animation', visualData: { type: 'empty' } }
+        ]
+      };
+    }
+
+    return mode === 'encrypt'
+      ? encryptBacon(text)
+      : decryptBacon(text);
+  }, [text, mode, isAnimating]);
 
   const {
     currentStep,
@@ -96,137 +141,112 @@ export function BaconCipher({ className }: BaconCipherProps) {
 
   const handleExecute = () => {
     setIsAnimating(true);
-    const result = generateBaconSteps(plaintext);
-    setDisplayCiphertext(result.ciphertext);
+    const result =
+      mode === 'encrypt'
+        ? encryptBacon(text)
+        : decryptBacon(text);
+
+    setOutput(result.result);
     reset();
     setTimeout(play, 100);
   };
 
-  const currentData = steps[currentStep]?.visualData as {
-    type: string;
-    text?: string;
-    encodings?: { letter: string; code: string }[];
-    currentIndex?: number;
-    ciphertext?: string;
-    partial?: string;
-  };
+  const currentData = steps[currentStep]?.visualData as any;
 
   return (
     <div className={cn('space-y-6', className)}>
       <CipherInput
-        plaintext={plaintext}
-        ciphertext={displayCiphertext}
+        plaintext={text}
+        ciphertext={output}
         showKey={false}
         mode={mode}
-        onPlaintextChange={setPlaintext}
+        onPlaintextChange={setText}
         onModeChange={setMode}
         onExecute={handleExecute}
       />
 
       <div className="border border-border bg-card p-6">
-        <div className="text-center mb-4">
-          <p className="text-sm text-muted-foreground">
-            {steps[currentStep]?.description}
-          </p>
-        </div>
+        <p className="text-sm text-center text-muted-foreground mb-4">
+          {steps[currentStep]?.description}
+        </p>
 
-        <div className="min-h-[200px] flex items-center justify-center">
+        <div className="min-h-[220px] flex items-center justify-center">
           {currentData?.type === 'empty' && (
-            <p className="text-muted-foreground">Configure and run to see animation</p>
+            <p className="text-muted-foreground">Configure and run</p>
           )}
 
           {currentData?.type === 'text' && (
-            <div className="flex gap-1 flex-wrap justify-center">
-              {(currentData.text || '').split('').map((char, i) => (
-                <span key={i} className="cipher-cell fade-in">
-                  {char}
-                </span>
+            <div className="flex gap-2">
+              {currentData.text.split('').map((c: string, i: number) => (
+                <span key={i} className="cipher-cell">{c}</span>
               ))}
             </div>
           )}
 
-          {currentData?.type === 'encoding' && currentData.encodings && (
-            <div className="space-y-6">
-              <div className="flex gap-4 flex-wrap justify-center">
-                {currentData.encodings.map((enc, i) => (
-                  <div 
-                    key={i} 
-                    className={cn(
-                      'flex flex-col items-center gap-2 transition-all duration-300',
-                      i === currentData.currentIndex && 'scale-110'
-                    )}
-                  >
-                    <span className={cn(
-                      'cipher-cell',
-                      i === currentData.currentIndex && 'cipher-cell-active'
-                    )}>
-                      {enc.letter}
-                    </span>
-                    <div className="flex gap-0.5">
-                      {enc.code.split('').map((bit, j) => (
-                        <span 
-                          key={j}
-                          className={cn(
-                            'w-5 h-5 flex items-center justify-center text-xs font-mono border border-border transition-colors',
-                            bit === 'A' ? 'bg-background' : 'bg-primary text-primary-foreground'
-                          )}
-                        >
-                          {bit}
-                        </span>
-                      ))}
-                    </div>
+          {currentData?.type === 'encoding' && (
+            <div className="flex gap-4 flex-wrap justify-center">
+              {currentData.encodings.map((e: any, i: number) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <span className={cn(
+                    'cipher-cell',
+                    i === currentData.currentIndex && 'cipher-cell-active'
+                  )}>
+                    {e.letter}
+                  </span>
+                  <div className="flex gap-1">
+                    {e.code.split('').map((b: string, j: number) => (
+                      <span
+                        key={j}
+                        className={cn(
+                          'w-5 h-5 flex items-center justify-center text-xs font-mono',
+                          b === 'A'
+                            ? 'border border-border'
+                            : 'bg-primary text-primary-foreground'
+                        )}
+                      >
+                        {b}
+                      </span>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {currentData.partial && (
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Encoded so far:</p>
-                  <p className="font-mono text-sm tracking-wider break-all max-w-md text-foreground">
-                    {currentData.partial}
-                  </p>
                 </div>
-              )}
+              ))}
             </div>
           )}
 
-          {currentData?.type === 'binary' && currentData.encodings && (
-            <div className="space-y-4 fade-in">
-              <div className="flex gap-4 flex-wrap justify-center">
-                {currentData.encodings.map((enc, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2">
-                    <span className="cipher-cell">{enc.letter}</span>
-                    <div className="flex gap-0.5">
-                      {enc.code.split('').map((bit, j) => (
-                        <span 
-                          key={j}
-                          className={cn(
-                            'w-5 h-5 flex items-center justify-center text-xs font-mono',
-                            bit === 'A' ? 'bg-background border border-border' : 'bg-primary text-primary-foreground'
-                          )}
-                        >
-                          {bit === 'A' ? '0' : '1'}
-                        </span>
-                      ))}
-                    </div>
+          {currentData?.type === 'decoding' && (
+            <div className="flex gap-4 flex-wrap justify-center">
+              {currentData.groups.map((g: any, i: number) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <div className="flex gap-1">
+                    {g.code.split('').map((b: string, j: number) => (
+                      <span
+                        key={j}
+                        className={cn(
+                          'w-5 h-5 flex items-center justify-center text-xs font-mono',
+                          b === 'A'
+                            ? 'border border-border'
+                            : 'bg-primary text-primary-foreground'
+                        )}
+                      >
+                        {b}
+                      </span>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-center text-muted-foreground">
-                Each letter encoded as 5-bit binary (A=0, B=1)
-              </p>
+                  <span className={cn(
+                    'cipher-cell',
+                    i === currentData.currentIndex && 'cipher-cell-active'
+                  )}>
+                    {g.letter}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
 
           {currentData?.type === 'result' && (
-            <div className="text-center fade-in space-y-4">
-              <p className="text-xs text-muted-foreground">Complete Ciphertext</p>
-              <p className="font-mono text-lg tracking-wider break-all max-w-lg text-foreground">
-                {currentData.ciphertext}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {(currentData.ciphertext?.length || 0)} bits ({(currentData.ciphertext?.length || 0) / 5} letters × 5 bits)
-              </p>
-            </div>
+            <p className="font-mono text-xl tracking-wider">
+              {currentData.ciphertext}
+            </p>
           )}
         </div>
       </div>
