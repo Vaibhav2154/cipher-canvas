@@ -25,7 +25,7 @@ const cipherComponents: Record<
 export default function Index() {
   const [selectedCipher, setSelectedCipher] =
     useState<CipherType>('scytale');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const CipherComponent = cipherComponents[selectedCipher];
   const documentation = cipherDocumentation[selectedCipher];

@@ -10,12 +10,11 @@ interface FeistelCipherProps {
 }
 
 function simpleRoundFunction(data: string, key: string): string {
-  // Simple XOR-like operation for demonstration
   let result = '';
   for (let i = 0; i < data.length; i++) {
-    const d = data.charCodeAt(i);
-    const k = key.charCodeAt(i % key.length);
-    result += String.fromCharCode(((d + k) % 26) + 65);
+    const d = data.charCodeAt(i) - 65;
+    const k = key.charCodeAt(i % key.length) - 65;
+    result += String.fromCharCode(((d + k + 1) % 26) + 65);
   }
   return result;
 }
@@ -24,17 +23,26 @@ function xorStrings(a: string, b: string): string {
   let result = '';
   for (let i = 0; i < a.length; i++) {
     const aVal = a.charCodeAt(i) - 65;
-    const bVal = b.charCodeAt(i % b.length) - 65;
+    const bVal = b.charCodeAt(i) - 65;
     result += String.fromCharCode(((aVal ^ bVal) % 26) + 65);
   }
   return result;
 }
 
-function generateFeistelSteps(text: string, key: string, rounds: number = 4): { steps: CipherStep[]; ciphertext: string } {
-  const cleanText = text.replace(/[^A-Z]/g, '').padEnd(8, 'X').slice(0, 8);
-  const cleanKey = key.toUpperCase().replace(/[^A-Z]/g, '') || 'KEY';
+function generateFeistelSteps(text: string, key: string, mode: 'encrypt' | 'decrypt', rounds: number = 4): { steps: CipherStep[]; ciphertext: string } {
+  const cleanText = text.replace(/[^A-Za-z]/g, '').toUpperCase().padEnd(8, 'X').slice(0, 8);
+  const cleanKey = key.toUpperCase().replace(/[^A-Za-z]/g, '') || 'KEY';
+  
+  if (mode === 'decrypt') {
+    return generateDecryptSteps(cleanText, cleanKey, rounds);
+  }
   
   const steps: CipherStep[] = [];
+  
+  steps.push({
+    description: `Starting encryption with plaintext: "${cleanText}"`,
+    visualData: { type: 'text', text: cleanText }
+  });
   
   // Step 1: Initial split
   let L = cleanText.slice(0, 4);
@@ -51,7 +59,7 @@ function generateFeistelSteps(text: string, key: string, rounds: number = 4): { 
 
   // Process each round
   for (let round = 1; round <= rounds; round++) {
-    const roundKey = cleanKey.slice(round % cleanKey.length) + cleanKey.slice(0, round % cleanKey.length);
+    const roundKey = cleanKey.slice((round - 1) % cleanKey.length) + cleanKey.slice(0, (round - 1) % cleanKey.length);
     const fResult = simpleRoundFunction(R, roundKey);
     const newL = R;
     const newR = xorStrings(L, fResult);
@@ -83,19 +91,34 @@ function generateFeistelSteps(text: string, key: string, rounds: number = 4): { 
       }
     });
 
-    // Show swap
-    L = newL;
-    R = newR;
-    
-    steps.push({
-      description: `Round ${round}: Swap → L${round}="${L}", R${round}="${R}"`,
-      visualData: { 
-        type: 'round',
-        L, R,
-        round,
-        phase: 'swap'
-      }
-    });
+    // Swap (except for final round)
+    if (round < rounds) {
+      L = newL;
+      R = newR;
+      
+      steps.push({
+        description: `Round ${round}: Swap → L${round}="${L}", R${round}="${R}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          round,
+          phase: 'swap'
+        }
+      });
+    } else {
+      // Final round - no swap, just assign
+      steps.push({
+        description: `Round ${round}: Final round - no swap → L="${L}", R="${newR}"`,
+        visualData: { 
+          type: 'round',
+          L: L,
+          R: newR,
+          round,
+          phase: 'final'
+        }
+      });
+      R = newR;
+    }
   }
 
   // Final combination (no swap on last)
@@ -109,6 +132,131 @@ function generateFeistelSteps(text: string, key: string, rounds: number = 4): { 
   return { steps, ciphertext };
 }
 
+function generateDecryptSteps(ciphertext: string, key: string, rounds: number): { steps: CipherStep[]; ciphertext: string } {
+  const cleanKey = key.toUpperCase().replace(/[^A-Za-z]/g, '') || 'KEY';
+  const steps: CipherStep[] = [];
+  
+  steps.push({
+    description: `Starting decryption with ciphertext: "${ciphertext}"`,
+    visualData: { type: 'text', text: ciphertext }
+  });
+  
+  // Initial split
+  let L = ciphertext.slice(0, 4);
+  let R = ciphertext.slice(4, 8);
+  
+  steps.push({
+    description: `Split ciphertext "${ciphertext}" into L₀="${L}" and R₀="${R}"`,
+    visualData: { 
+      type: 'split',
+      L, R,
+      round: 0
+    }
+  });
+
+  // Reverse the rounds for decryption
+  for (let round = rounds; round >= 1; round--) {
+    const roundKey = cleanKey.slice((round - 1) % cleanKey.length) + cleanKey.slice(0, (round - 1) % cleanKey.length);
+    
+    if (round === rounds) {
+      // First decryption step - reverse final round (no swap happened)
+      const fResult = simpleRoundFunction(L, roundKey);
+      const newR = L;
+      const newL = xorStrings(R, fResult);
+      
+      steps.push({
+        description: `Decrypt Round ${rounds - round + 1}: F(L, K${round}) = F("${L}", "${roundKey.slice(0, 4)}") = "${fResult}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          roundKey: roundKey.slice(0, 4),
+          fResult,
+          round: rounds - round + 1,
+          phase: 'function'
+        }
+      });
+
+      steps.push({
+        description: `Decrypt Round ${rounds - round + 1}: R ⊕ F(L, K) = "${R}" ⊕ "${fResult}" = "${newL}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          newL,
+          newR,
+          fResult,
+          round: rounds - round + 1,
+          phase: 'xor'
+        }
+      });
+
+      L = newL;
+      R = newR;
+      
+      steps.push({
+        description: `Decrypt Round ${rounds - round + 1}: Swap → L="${L}", R="${R}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          round: rounds - round + 1,
+          phase: 'swap'
+        }
+      });
+    } else {
+      // Regular decryption rounds
+      const fResult = simpleRoundFunction(L, roundKey);
+      const newR = L;
+      const newL = xorStrings(R, fResult);
+      
+      steps.push({
+        description: `Decrypt Round ${rounds - round + 1}: F(L, K${round}) = F("${L}", "${roundKey.slice(0, 4)}") = "${fResult}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          roundKey: roundKey.slice(0, 4),
+          fResult,
+          round: rounds - round + 1,
+          phase: 'function'
+        }
+      });
+
+      steps.push({
+        description: `Decrypt Round ${rounds - round + 1}: R ⊕ F(L, K) = "${R}" ⊕ "${fResult}" = "${newL}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          newL,
+          newR,
+          fResult,
+          round: rounds - round + 1,
+          phase: 'xor'
+        }
+      });
+
+      L = newL;
+      R = newR;
+      
+      steps.push({
+        description: `Decrypt Round ${rounds - round + 1}: Swap → L="${L}", R="${R}"`,
+        visualData: { 
+          type: 'round',
+          L, R,
+          round: rounds - round + 1,
+          phase: 'swap'
+        }
+      });
+    }
+  }
+
+  const plaintext = (L + R).replace(/X+$/, '');
+  
+  steps.push({
+    description: `Decryption complete: "${plaintext}"`,
+    visualData: { type: 'result', L, R, ciphertext: plaintext }
+  });
+
+  return { steps, ciphertext: plaintext };
+}
+
 export function FeistelCipher({ className }: FeistelCipherProps) {
   const [plaintext, setPlaintext] = useState('SECURITY');
   const [keyValue, setKeyValue] = useState('CRYPTO');
@@ -118,8 +266,9 @@ export function FeistelCipher({ className }: FeistelCipherProps) {
 
   const { steps } = useMemo(() => {
     if (!isAnimating) return { steps: [{ description: 'Enter text and key, then click "Run Animation"', visualData: { type: 'empty' } }] };
-    return generateFeistelSteps(plaintext, keyValue);
-  }, [plaintext, keyValue, isAnimating]);
+    const inputText = mode === 'encrypt' ? plaintext : displayCiphertext || plaintext;
+    return generateFeistelSteps(inputText, keyValue, mode);
+  }, [plaintext, displayCiphertext, keyValue, mode, isAnimating]);
 
   const {
     currentStep,
@@ -133,7 +282,8 @@ export function FeistelCipher({ className }: FeistelCipherProps) {
 
   const handleExecute = () => {
     setIsAnimating(true);
-    const result = generateFeistelSteps(plaintext, keyValue);
+    const inputText = mode === 'encrypt' ? plaintext : displayCiphertext || plaintext;
+    const result = generateFeistelSteps(inputText, keyValue, mode);
     setDisplayCiphertext(result.ciphertext);
     reset();
     setTimeout(play, 100);
@@ -141,6 +291,7 @@ export function FeistelCipher({ className }: FeistelCipherProps) {
 
   const currentData = steps[currentStep]?.visualData as {
     type: string;
+    text?: string;
     L?: string;
     R?: string;
     newL?: string;
@@ -177,6 +328,16 @@ export function FeistelCipher({ className }: FeistelCipherProps) {
         <div className="min-h-[280px] flex items-center justify-center">
           {currentData?.type === 'empty' && (
             <p className="text-muted-foreground">Configure and run to see animation</p>
+          )}
+
+          {currentData?.type === 'text' && (
+            <div className="flex gap-1 flex-wrap justify-center fade-in">
+              {(currentData.text || '').split('').map((char, i) => (
+                <span key={i} className="cipher-cell">
+                  {char}
+                </span>
+              ))}
+            </div>
           )}
 
           {currentData?.type === 'split' && (
