@@ -30,10 +30,73 @@ function generateSpiralRoute(rows: number, cols: number): [number, number][] {
   return route;
 }
 
-function generateRouteSteps(text: string, cols: number): { steps: CipherStep[]; ciphertext: string } {
-  const cleanText = text.replace(/[^A-Z]/g, '');
+function generateDecryptSteps(ciphertext: string, cols: number): { steps: CipherStep[]; ciphertext: string } {
+  const rows = Math.ceil(ciphertext.length / cols);
+  const steps: CipherStep[] = [];
+  
+  steps.push({
+    description: `Starting with ciphertext: "${ciphertext}"`,
+    visualData: { type: 'text', text: ciphertext, highlight: [] }
+  });
+
+  const grid: string[][] = Array(rows).fill(null).map(() => Array(cols).fill(''));
+  const route = generateSpiralRoute(rows, cols);
+  
+  // Fill grid using spiral route
+  for (let i = 0; i < Math.min(route.length, ciphertext.length); i++) {
+    const [r, c] = route[i];
+    grid[r][c] = ciphertext[i];
+  }
+
+  steps.push({
+    description: `Text arranged in ${rows}×${cols} grid following spiral route`,
+    visualData: { 
+      type: 'grid', 
+      grid: grid.map(row => [...row]), 
+      rows, 
+      cols,
+      route: route
+    }
+  });
+
+  // Read row by row
+  let plaintext = '';
+  for (let r = 0; r < rows; r++) {
+    const rowText = grid[r].join('');
+    plaintext += rowText;
+    
+    steps.push({
+      description: `Reading row ${r + 1}: "${rowText}"`,
+      visualData: { 
+        type: 'grid', 
+        grid: grid.map(row => [...row]), 
+        rows, 
+        cols,
+        route: [],
+        highlightRow: r,
+        partial: plaintext
+      }
+    });
+  }
+
+  const finalText = plaintext.replace(/X+$/, ''); // Remove padding
+  
+  steps.push({
+    description: `Plaintext complete: "${finalText}"`,
+    visualData: { type: 'result', ciphertext: finalText }
+  });
+
+  return { steps, ciphertext: finalText };
+}
+
+function generateRouteSteps(text: string, cols: number, mode: 'encrypt' | 'decrypt'): { steps: CipherStep[]; ciphertext: string } {
+  const cleanText = text.replace(/[^A-Za-z]/g, '').toUpperCase();
   if (!cleanText || cols < 2) {
     return { steps: [], ciphertext: '' };
+  }
+
+  if (mode === 'decrypt') {
+    return generateDecryptSteps(cleanText, cols);
   }
 
   const rows = Math.ceil(cleanText.length / cols);
@@ -48,39 +111,67 @@ function generateRouteSteps(text: string, cols: number): { steps: CipherStep[]; 
     visualData: { type: 'text', text: cleanText }
   });
 
-  // Step 2: Build grid row by row
+  // Step 2: Pad text if needed
+  if (paddedText !== cleanText) {
+    steps.push({
+      description: `Padding text to fill ${rows}×${cols} grid: "${paddedText}"`,
+      visualData: { type: 'text', text: paddedText, highlight: [] }
+    });
+  }
+
+  // Step 3: Build grid row by row
   for (let r = 0; r < rows; r++) {
     const row = paddedText.slice(r * cols, (r + 1) * cols).split('');
     grid.push(row);
+    
+    steps.push({
+      description: `Filling row ${r + 1}: "${row.join('')}"`,
+      visualData: { 
+        type: 'grid', 
+        grid: grid.map(row => [...row]), 
+        rows, 
+        cols, 
+        route: [],
+        highlightRow: r
+      }
+    });
   }
 
+  // Step 4: Generate spiral route
+  const route = generateSpiralRoute(rows, cols);
+  
   steps.push({
-    description: `Text arranged in ${rows}×${cols} grid`,
-    visualData: { type: 'grid', grid: grid.map(r => [...r]), rows, cols, route: [] }
+    description: `Generated spiral route through ${rows}×${cols} grid`,
+    visualData: { 
+      type: 'grid', 
+      grid: grid.map(row => [...row]), 
+      rows, 
+      cols,
+      route: route,
+      showRoute: true
+    }
   });
 
-  // Step 3: Generate and follow spiral route
-  const route = generateSpiralRoute(rows, cols);
+  // Step 5: Follow spiral route
   let ciphertext = '';
   
-  for (let i = 0; i < Math.min(route.length, paddedText.length); i++) {
+  for (let i = 0; i < route.length && i < paddedText.length; i++) {
     const [r, c] = route[i];
-    ciphertext += grid[r][c];
+    const char = grid[r][c];
+    ciphertext += char;
     
-    if (i % 3 === 0 || i === route.length - 1) {
-      steps.push({
-        description: `Following spiral path... position (${r + 1}, ${c + 1})`,
-        visualData: { 
-          type: 'grid', 
-          grid: grid.map(r => [...r]), 
-          rows, 
-          cols,
-          route: route.slice(0, i + 1),
-          currentPos: [r, c],
-          partial: ciphertext
-        }
-      });
-    }
+    steps.push({
+      description: `Position (${r + 1}, ${c + 1}): Read '${char}'`,
+      visualData: { 
+        type: 'grid', 
+        grid: grid.map(row => [...row]), 
+        rows, 
+        cols,
+        route: route.slice(0, i + 1),
+        currentPos: [r, c],
+        partial: ciphertext
+      }
+    });
   }
 
   // Final step
@@ -103,8 +194,8 @@ export function RouteCipher({ className }: RouteCipherProps) {
 
   const { steps } = useMemo(() => {
     if (!isAnimating) return { steps: [{ description: 'Enter text and click "Run Animation"', visualData: { type: 'empty' } }], ciphertext: '' };
-    return generateRouteSteps(plaintext, cols);
-  }, [plaintext, cols, isAnimating]);
+    return generateRouteSteps(mode === 'encrypt' ? plaintext : displayCiphertext || plaintext, cols, mode);
+  }, [plaintext, displayCiphertext, cols, isAnimating, mode]);
 
   const {
     currentStep,
@@ -118,7 +209,8 @@ export function RouteCipher({ className }: RouteCipherProps) {
 
   const handleExecute = () => {
     setIsAnimating(true);
-    const result = generateRouteSteps(plaintext, cols);
+    const inputText = mode === 'encrypt' ? plaintext : displayCiphertext || plaintext;
+    const result = generateRouteSteps(inputText, cols, mode);
     setDisplayCiphertext(result.ciphertext);
     reset();
     setTimeout(play, 100);
@@ -134,6 +226,9 @@ export function RouteCipher({ className }: RouteCipherProps) {
     text?: string;
     ciphertext?: string;
     partial?: string;
+    highlight?: number[];
+    highlightRow?: number;
+    showRoute?: boolean;
   };
 
   return (
@@ -199,8 +294,10 @@ export function RouteCipher({ className }: RouteCipherProps) {
                   {currentData.grid.map((row, r) => (
                     <div key={r} className="flex gap-1">
                       {row.map((char, c) => {
-                        const isVisited = currentData.route?.some(([rr, cc]) => rr === r && cc === c);
+                        const routeIndex = currentData.route?.findIndex(([rr, cc]) => rr === r && cc === c) ?? -1;
+                        const isVisited = routeIndex >= 0 && routeIndex < (currentData.route?.length || 0);
                         const isCurrent = currentData.currentPos?.[0] === r && currentData.currentPos?.[1] === c;
+                        const isHighlightRow = currentData.highlightRow === r;
                         
                         return (
                           <span
@@ -208,7 +305,8 @@ export function RouteCipher({ className }: RouteCipherProps) {
                             className={cn(
                               'cipher-cell transition-all duration-300',
                               isCurrent && 'cipher-cell-active',
-                              isVisited && !isCurrent && 'cipher-cell-highlight'
+                              isVisited && !isCurrent && 'cipher-cell-highlight',
+                              isHighlightRow && !isCurrent && !isVisited && 'cipher-cell-secondary'
                             )}
                           >
                             {char}
